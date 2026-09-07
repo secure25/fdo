@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  @apply bg-paper text-ink font-sans;
+}
+
+::selection {
+  background: rgba(26, 86, 219, 0.14);
+}
+
+/* Editorial display type for marketing + dashboard headlines */
+.display {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.data-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.hairline {
+  border-color: theme("colors.paper.line");
+}
+
+/* Scrollbars: thin, quiet */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8d4cf transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d8d4cf;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Utility: dotted "opportunity map" background for hero */
+.map-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(20, 18, 16, 0.07) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+@media print {
+  .no-print {
+    display: none;
+  }
+}

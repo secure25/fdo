@@ -1,0 +1,190 @@
+import { requirePage } from "@/lib/auth/guard";
+import { betaEntitlementSchema } from "@/lib/validation/schemas";
+import { activateBetaEntitlement, isBetaEntitlementActive } from "@/lib/betaEntitlement/betaEntitlement.service";
+import { Button, Card, CardHeader, Field, Input, Modal, SectionLabel, Toast, Toaster } from "@/components/ui";
+import { useState } from "react";
+
+export const metadata = { title: "Beta Program" };
+
+export default async function BetaPage() {
+  const auth = await requirePage();
+  const [isActivating, setIsActivating] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+  const [betaEntitlement, setBetaEntitlement] = useState<any>(null);
+  const [toast, setToast] = useState<{ id: string; type: "success" | "error"; message: string } | null>(null);
+  const [cohort, setCohort] = useState<string>("BETA_2026_09");
+
+  // Check beta status on load
+  const checkBetaStatus = async () => {
+    const active = await isBetaEntitlementActive(auth.orgId);
+    setIsActive(active);
+    if (active) {
+      const entitlement = await getActiveBetaEntitlement(auth.orgId);
+      setBetaEntitlement(entitlement);
+    }
+  };
+
+  // Activate beta entitlement
+  const handleActivate = async () => {
+    setIsActivating(true);
+    try {
+      // Check if already active
+      const alreadyActive = await isBetaEntitlementActive(auth.orgId);
+      if (alreadyActive) {
+        setToast({
+          id: Math.random().toString(36).substr(2, 9),
+          type: "error",
+          message: "You already have an active beta entitlement"
+        });
+        return;
+      }
+
+      // Check for active paid subscription
+      const subscription = await prisma.subscription.findFirst({
+        where: { orgId: auth.orgId, status: "ACTIVE" },
+      });
+
+      if (subscription) {
+        setToast({
+          id: Math.random().toString(36).substr(2, 9),
+          type: "error",
+          message: "Cannot activate beta entitlement while an active paid subscription exists"
+        });
+        return;
+      }
+
+      // Activate beta entitlement
+      const entitlement = await activateBetaEntitlement(auth.orgId, auth.userId, cohort);
+      setIsActive(true);
+      setBetaEntitlement(entitlement);
+      
+      setToast({
+        id: Math.random().toString(36).substr(2, 9),
+        type: "success",
+        message: "Beta entitlement activated successfully! You now have 30 days of Pro access."
+      });
+    } catch (error: any) {
+      setToast({
+        id: Math.random().toString(36).substr(2, 9),
+        type: "error",
+        message: error.message || "Failed to activate beta entitlement"
+      });
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  await checkBetaStatus();
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Founder Distribution OS Beta Program</h1>
+        <p className="text-sm text-ink-mute">
+          Get 30 days of complimentary Pro access to test and provide feedback on the platform.
+          No credit card required. Automatically reverts to Free plan after 30 days.
+        </p>
+      </div>
+
+      {toast && (
+        <div className="mb-4">
+          <Toast 
+            onClose={() => setToast(null)} 
+            title={toast.type === "success" ? "Success" : "Error"} 
+            description={toast.message}
+          />
+        </div>
+      )}
+
+      {isActive ? (
+        <Card className="mb-6">
+          <CardHeader title="Your Beta Entitlement" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Status</span>
+              <span className="px-3 py-1 rounded text-sm font-semibold bg-good-soft text-good">
+                Active
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Cohort</span>
+              <span className="text-sm font-medium">{betaEntitlement?.cohort}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Start Date</span>
+              <span className="text-sm font-medium">{new Date(betaEntitlement?.startsAt).toLocaleDateString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">End Date</span>
+              <span className="text-sm font-medium">{new Date(betaEntitlement?.endsAt).toLocaleDateString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Days Remaining</span>
+              <span className="px-3 py-1 rounded text-sm font-semibold bg-accent-soft text-accent">
+                {Math.max(0, Math.ceil((betaEntitlement?.endsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} days
+              </span>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card className="mb-6">
+          <CardHeader title="How the Beta Program Works" />
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
+                1
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium">Sign Up</h3>
+                <p className="text-xs text-ink-mute">Create your account and onboard your business</p>
+              </div>
+            </div>
+            <div className="flex items-center mt-4">
+              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
+                2
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium">Activate Beta</h3>
+                <p className="text-xs text-ink-mute">Click the button below to activate 30 days of Pro access</p>
+              </div>
+            </div>
+            <div className="flex items-center mt-4">
+              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
+                3
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium">Test & Provide Feedback</h3>
+                <p className="text-xs text-ink-mute">Use the platform freely for 30 days and share your feedback</p>
+              </div>
+            </div>
+            <div className="flex items-center mt-4">
+              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
+                4
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium">Automatic Downgrade</h3>
+                <p className="text-xs text-ink-mute">After 30 days, your account will automatically revert to the Free plan</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between mt-6">
+            <Button 
+              onClick={handleActivate}
+              disabled={isActivating}
+              className={`w-full ${isActivating ? "opacity-50" : ""}`}
+            >
+              {isActivating ? "Activating..." : "Activate 30-Day Beta Access"}
+            </Button>
+          </div>
+        </Card>
+      )}
+      
+      <div className="mt-6">
+        <Card>
+          <CardHeader title="Important Notes" />
+          <div className="space-y-3">
+            <p className="text-sm text-ink-mute">
+              <strong>No Credit Card Required:</strong> The beta program does not require a credit card to activate.
+            </p>
+            <p className="text-sm text

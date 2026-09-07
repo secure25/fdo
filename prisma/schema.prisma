@@ -1,0 +1,656 @@
+// Founder Distribution OS — data model
+// PostgreSQL (Neon) for production. All models use portable types.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ─── Identity & workspaces ────────────────────────────────────────────────────
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+}
+
+model Organization {
+  id        String         @id @default(cuid())
+  name      String
+  slug      String         @unique
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  members   Membership[]
+  products  Product[]
+  sessions  Session[]
+  // billing
+  subscription   Subscription?
+  usageEvents    UsageEvent[]
+  apiKeys        ApiKey[]
+  integrations   Integration[]
+  sources        Source[]
+  opportunities  Opportunity[]
+  prospects      Prospect[]
+  companies      Company[]
+  campaigns      Campaign[]
+  content        Content[]
+  experiments    Experiment[]
+  competitors    Competitor[]
+  customers      Customer[]
+  conversions    Conversion[]
+  revenueEvents  RevenueEvent[]
+  observations   LearningObservation[]
+  insights       LearningInsight[]
+  recommendations Recommendation[]
+  jobs           Job[]
+  betaEntitlements BetaEntitlement[]
+  betaFeedback     BetaFeedback[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  orgId     String
+  role      String // OWNER | ADMIN | MEMBER
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@unique([userId, orgId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  orgId     String?
+  tokenHash String   @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Organization? @relation(fields: [orgId], references: [id])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String
+  prefix     String
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─── Product intelligence ─────────────────────────────────────────────────────
+
+model Product {
+  id             String   @id @default(cuid())
+  orgId          String
+  name           String
+  url            String?
+  description    String
+  targetCustomer String?
+  industry       String?
+  geography      String?
+  budgetBand     String? // NONE | LEAN | MODERATE | FUNDED
+  timePerWeek    Int? // hours
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  org            Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  analysis       ProductAnalysis?
+  icps           Icp[]
+  personas       Persona[]
+  channels       ChannelScore[]
+  communities    ProductCommunity[]
+  opportunities  Opportunity[]
+  prospects      Prospect[]
+  content        Content[]
+  experiments    Experiment[]
+  competitors    Competitor[]
+  customers      Customer[]
+  conversions    Conversion[]
+  revenueEvents  RevenueEvent[]
+  observations   LearningObservation[]
+  insights       LearningInsight[]
+  recommendations Recommendation[]
+  campaigns      Campaign[]
+}
+
+model ProductAnalysis {
+  id             String   @id @default(cuid())
+  productId      String   @unique
+  category       String
+  oneLiner       String
+  positioning    String
+  problems       String // string[]
+  useCases       String
+  keywords       String
+  buyingTriggers String
+  objections     String
+  model          String // engine that produced it: heuristic | <llm-model>
+  confidence     String // per-field: VERIFIED | INFERENCE | RECOMMENDATION
+  generatedAt    DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Icp {
+  id          String  @id @default(cuid())
+  productId   String
+  name        String
+  description String
+  buyerRole   String
+  seniority   String?
+  companySize String?
+  geography   String?
+  fitWeight   Int     @default(100)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Persona {
+  id            String  @id @default(cuid())
+  productId     String
+  name          String
+  role          String
+  quote         String?
+  goals         String // string[]
+  pains         String
+  wateringHoles String
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ─── Distribution map ─────────────────────────────────────────────────────────
+
+model ChannelScore {
+  id                String  @id @default(cuid())
+  productId         String
+  group             String // COMMUNITIES | SOCIAL | SEARCH | DIRECT | PARTNERSHIPS | DIRECTORIES
+  name              String
+  url               String?
+  icpFit            Int
+  intentDensity     Int
+  competition       Int // lower is better
+  effort            String // LOW | MEDIUM | HIGH
+  expectedConversion Int
+  opportunity       String // LOW | MEDIUM | HIGH | VERY_HIGH
+  strategy          String
+  rank              Int
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@unique([productId, name])
+}
+
+model Community {
+  id            String  @id @default(cuid())
+  platform      String // REDDIT | DISCORD | FACEBOOK | SLACK | FORUM | HACKERNEWS | LINKEDIN | X | OTHER
+  name          String
+  url           String
+  focus         String
+  memberEstimate String?
+  rules         String? // string[]
+  archetypeTags String // string[] — industry archetypes this community fits
+  isActive      Boolean @default(true)
+  productLinks  ProductCommunity[]
+  opportunities Opportunity[]
+}
+
+model ProductCommunity {
+  id          String    @id @default(cuid())
+  productId   String
+  communityId String
+  fit         Int       @default(50)
+  notes       String?
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  @@unique([productId, communityId])
+}
+
+model Source {
+  id        String    @id @default(cuid())
+  orgId     String
+  adapter   String // reddit | hackernews | sandbox | rss
+  name      String
+  status    String    @default("ACTIVE") // ACTIVE | PAUSED | ERROR
+  config    String?
+  lastRunAt DateTime?
+  lastError String?
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@unique([orgId, adapter])
+}
+
+// ─── Discovery + intent ───────────────────────────────────────────────────────
+
+model Opportunity {
+  id             String    @id @default(cuid())
+  orgId          String
+  productId      String?
+  communityId    String?
+  adapter        String // reddit | hackernews | linkedin | sandbox | manual
+  externalId     String
+  url            String?
+  platform       String
+  communityName  String?
+  title          String
+  body           String
+  author         String?
+  authorUrl      String?
+  postedAt       DateTime
+  ageHours       Float
+  isPartnerSignal Boolean  @default(false)
+  competitorName String?
+  intentType     String // PROBLEM_AWARENESS | SOLUTION_RESEARCH | VENDOR_COMPARISON | ACTIVE_BUYING | COMPETITOR_DISSATISFACTION | RECOMMENDATION_REQUEST | URGENT_NEED | PARTNERSHIP_OPPORTUNITY
+  subIcp         Int
+  subProblem     Int
+  subIntent      Int
+  subRecency     Int
+  subCompetition Int
+  subEngagement  Int
+  score          Int
+  band           String // LOW | MEDIUM | HIGH | VERY_HIGH
+  effortMinutes  Int
+  potential      String
+  explanation    String // { what, whyMatters[], whyYou[], nextAction, caution? }
+  matchedPhrases String // string[]
+  status         String    @default("NEW") // NEW | SAVED | DISMISSED | ACTED | CONVERTED
+  isLive         Boolean   @default(false) // from a live adapter vs sandbox/demo
+  createdAt      DateTime  @default(now())
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product        Product?     @relation(fields: [productId], references: [id])
+  community      Community?   @relation(fields: [communityId], references: [id])
+  signals        OpportunitySignal[]
+  contents       Content[]
+  prospects      Prospect[]
+  campaignActions CampaignAction[]
+  conversions    Conversion[]
+  @@unique([orgId, adapter, externalId])
+  @@index([orgId, status, score])
+}
+
+model OpportunitySignal {
+  id            String @id @default(cuid())
+  opportunityId String
+  kind          String // INTENT_PHRASE | ICP_EVIDENCE | COMPETITOR_MENTION | PRICE_SIGNAL | URGENCY | TECH_STACK | PARTNER_SIGNAL
+  phrase        String
+  weight        Int
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+}
+
+// ─── Prospects & companies ────────────────────────────────────────────────────
+
+model Prospect {
+  id                String   @id @default(cuid())
+  orgId             String
+  productId         String?
+  name              String
+  handle            String?
+  company           String?
+  role              String?
+  website           String?
+  industry          String?
+  sourceOpportunityId String?
+  icpFit            Int
+  intentScore       Int
+  signalsVerified   String // string[]
+  signalsInferred   String // string[]
+  approach          String
+  stage             String   @default("NEW") // NEW | CONTACTED | ENGAGED | QUALIFIED | CUSTOMER | LOST
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product           Product?     @relation(fields: [productId], references: [id])
+  sourceOpportunity Opportunity? @relation(fields: [sourceOpportunityId], references: [id])
+  customers         Customer[]
+  campaignActions   CampaignAction[]
+  @@index([orgId, stage])
+}
+
+model Company {
+  id      String @id @default(cuid())
+  orgId   String
+  name    String
+  domain  String?
+  industry String?
+  sizeBand String?
+  tech     String?
+  signals  String?
+  notes    String?
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@unique([orgId, name])
+}
+
+// ─── Campaigns & content ──────────────────────────────────────────────────────
+
+model Campaign {
+  id         String    @id @default(cuid())
+  orgId      String
+  productId  String?
+  name       String
+  channel    String
+  objective  String
+  status     String    @default("ACTIVE") // SCHEDULED | ACTIVE | PAUSED | DONE
+  goalMetric String?
+  scheduledAt DateTime?
+  startedAt  DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product    Product?     @relation(fields: [productId], references: [id])
+  actions    CampaignAction[]
+}
+
+model CampaignAction {
+  id            String    @id @default(cuid())
+  campaignId    String
+  opportunityId String?
+  prospectId    String?
+  type          String // REPLY | COMMENT | POST | EMAIL | CONNECT | PARTNER | CONTENT | SEO | FOLLOWUP
+  title         String
+  status        String    @default("TODO") // TODO | DONE | SKIPPED
+  dueAt         DateTime?
+  doneAt        DateTime?
+  notes         String?
+  campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id])
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id])
+}
+
+model Content {
+  id           String    @id @default(cuid())
+  orgId        String
+  productId    String?
+  channel      String // REDDIT | LINKEDIN | X | YOUTUBE | SEO | EMAIL | BLOG
+  format       String // REPLY | COMMENT | POST | THREAD | SCRIPT | ARTICLE | COMPARISON | LANDING | OUTREACH | FOLLOWUP
+  title        String
+  body         String
+  status       String    @default("DRAFT") // DRAFT | APPROVED | PUBLISHED | ARCHIVED
+  opportunityId String?
+  spamRisk     Int       @default(0)
+  warnings     String // { level, code, message }[]
+  scheduledFor DateTime?
+  publishedAt  DateTime?
+  url          String?
+  imageUrl     String? // uploaded or AI-generated banner/thumbnail (served via /api/uploads)
+  metrics      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product      Product?       @relation(fields: [productId], references: [id])
+  opportunity  Opportunity?   @relation(fields: [opportunityId], references: [id])
+}
+
+// ─── Experiments ──────────────────────────────────────────────────────────────
+
+model Experiment {
+  id         String    @id @default(cuid())
+  orgId      String
+  productId  String?
+  name       String
+  hypothesis String
+  channelA   String
+  channelB   String
+  status     String    @default("RUNNING") // RUNNING | CONCLUDED
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product    Product? @relation(fields: [productId], references: [id])
+  results    ExperimentResult[]
+}
+
+model ExperimentResult {
+  id           String   @id @default(cuid())
+  experimentId String
+  channel      String
+  opportunities Int     @default(0)
+  engagements  Int      @default(0)
+  clicks       Int      @default(0)
+  signups      Int      @default(0)
+  activations  Int      @default(0)
+  customers    Int      @default(0)
+  revenueCents Int      @default(0)
+  spendCents   Int      @default(0)
+  hoursInvested Float   @default(0)
+  recordedAt   DateTime @default(now())
+  note         String?
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+}
+
+// ─── Competitors ──────────────────────────────────────────────────────────────
+
+model Competitor {
+  id          String  @id @default(cuid())
+  orgId       String
+  productId   String?
+  name        String
+  url         String?
+  positioning String?
+  notes       String?
+  monitor     Boolean @default(true)
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+  events      CompetitorEvent[]
+  @@unique([orgId, name])
+}
+
+model CompetitorEvent {
+  id                String   @id @default(cuid())
+  competitorId      String
+  orgId             String
+  kind              String // PRICING | FEATURE | LAUNCH | REVIEW | CONTENT | POSITIONING | COMPLAINT
+  title             String
+  detail            String
+  sourceUrl         String?
+  whatChanged       String
+  whyItMatters      String
+  potentialResponse String
+  severity          String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  detectedAt        DateTime @default(now())
+  competitor        Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  @@index([orgId, detectedAt])
+}
+
+// ─── Customers, conversions & revenue ─────────────────────────────────────────
+
+model Customer {
+  id          String    @id @default(cuid())
+  orgId       String
+  productId   String?
+  name        String
+  email       String?
+  company     String?
+  channel     String
+  prospectId  String?
+  mrrCents    Int       @default(0)
+  status      String    @default("LEAD") // LEAD | SIGNUP | ACTIVATED | CUSTOMER | CHURNED
+  firstSeenAt DateTime  @default(now())
+  activatedAt DateTime?
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product     Product?  @relation(fields: [productId], references: [id])
+  prospect    Prospect? @relation(fields: [prospectId], references: [id])
+  revenueEvents RevenueEvent[]
+  @@index([orgId, channel])
+}
+
+model Conversion {
+  id            String   @id @default(cuid())
+  orgId         String
+  productId     String?
+  channel       String
+  opportunityId String?
+  stage         String // VISIT | SIGNUP | ACTIVATION | CUSTOMER
+  count         Int      @default(1)
+  occurredAt    DateTime @default(now())
+  meta          String?
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product       Product?     @relation(fields: [productId], references: [id])
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  @@index([orgId, channel, stage])
+}
+
+model RevenueEvent {
+  id          String   @id @default(cuid())
+  orgId       String
+  productId   String?
+  channel     String
+  customerId  String?
+  amountCents Int
+  kind        String // NEW | EXPANSION | CHURN | REFUND
+  isRecurring Boolean  @default(false)
+  occurredAt  DateTime @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product     Product?  @relation(fields: [productId], references: [id])
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  @@index([orgId, channel])
+}
+
+// ─── Learning ─────────────────────────────────────────────────────────────────
+
+model LearningObservation {
+  id          String   @id @default(cuid())
+  orgId       String
+  productId   String?
+  subjectType String // CONTENT | OUTREACH | CHANNEL | EXPERIMENT
+  subjectRef  String?
+  channel     String
+  topic       String?
+  format      String?
+  icpTag      String?
+  metrics     String // { impressions, engagements, clicks, signups, customers, revenueCents }
+  result      String // HIGH | MEDIUM | LOW
+  notes       String?
+  observedAt  DateTime @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id])
+}
+
+model LearningInsight {
+  id            String   @id @default(cuid())
+  orgId         String
+  productId     String?
+  statement     String
+  dimension     String // TOPIC | FORMAT | CHANNEL | ICP | TIMING | WHY
+  confidence    Int // 0-100
+  evidence      String // string[]
+  recommendation String
+  createdAt     DateTime @default(now())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product       Product?     @relation(fields: [productId], references: [id])
+}
+
+model Recommendation {
+  id           String   @id @default(cuid())
+  orgId        String
+  productId    String?
+  kind         String // REPLY | CONTACT | PUBLISH | PARTNER | EXPERIMENT | SEO | CHANNEL_SHIFT | FOLLOWUP
+  title        String
+  body         String
+  what         String
+  why          String
+  impact       String // HIGH | MEDIUM | LOW
+  effortMinutes Int
+  nextAction   String
+  refType      String?
+  refId        String?
+  priority     Int      @default(50)
+  status       String   @default("OPEN") // OPEN | ACCEPTED | DONE | DISMISSED
+  createdAt    DateTime @default(now())
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id])
+  @@index([orgId, status, priority])
+}
+
+// ─── Platform: integrations, usage, billing ───────────────────────────────────
+
+model Integration {
+  id        String    @id @default(cuid())
+  orgId     String
+  provider  String // slack | hubspot | pipedrive | gmail | stripe | zapier | webhook
+  status    String    @default("DISCONNECTED") // CONNECTED | DISCONNECTED
+  config    String?
+  lastSyncAt DateTime?
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@unique([orgId, provider])
+}
+
+model UsageEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  kind      String // AI_CREDIT | DISCOVERY_SCAN | SEAT
+  amount    Int      @default(1)
+  meta      String?
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@index([orgId, kind, createdAt])
+}
+
+model Subscription {
+  id                String    @id @default(cuid())
+  orgId             String    @unique
+  plan              String // FREE | MAKER | GROWTH | PRO
+  status            String    @default("ACTIVE") // ACTIVE | TRIALING | PAST_DUE | CANCELED
+  provider          String    @default("MANUAL") // STRIPE | PADDLE | MANUAL
+  providerRef       String?
+  seats             Int       @default(1)
+  creditsBalance    Int       @default(200)
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd  DateTime?
+  createdAt         DateTime  @default(now())
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  orgId       String?
+  type        String // DISCOVERY_SCAN | AI_ENRICH | COMPETITOR_WATCH | DIGEST | FETCH_SITE | RESEARCH | AI_ANALYZE
+  payload     String
+  status      String    @default("QUEUED") // QUEUED | RUNNING | DONE | FAILED | DEAD
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  priority    Int       @default(50)
+  runAt       DateTime  @default(now())
+  leasedUntil DateTime?
+  lastError   String?
+  result      String? // stage output JSON (scraped markdown, research results, analysis summary)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  org         Organization? @relation(fields: [orgId], references: [id])
+  @@index([status, runAt])
+}
+
+model BetaEntitlement {
+  id          String    @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  userId      String
+  startsAt    DateTime
+  endsAt      DateTime
+  status      String    // ACTIVE, EXPIRED, REVOKED
+  cohort      String
+  auditLog    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([orgId])
+  @@index([status])
+}
+
+model BetaFeedback {
+  id          String    @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  userId      String
+  rating      Int?      // 1-5
+  feedback    String
+  createdAt   DateTime  @default(now())
+
+  @@index([orgId])
+}

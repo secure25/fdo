@@ -1,0 +1,159 @@
+import { AppError } from "./errors";
+/**
+ * Plan entitlements + enforcement. Plans match the public pricing page.
+ * Limits are enforced in services (not UI) so the UI simply reflects reality.
+ */
+
+export type PlanId = "FREE" | "MAKER" | "GROWTH" | "PRO";
+
+export type Plan = {
+  id: PlanId;
+  name: string;
+  priceCents: number;
+  tagline: string;
+  limits: {
+    products: number;
+    opportunitiesSurfaced: number; // per scan day
+    aiCreditsPerMonth: number;
+    seats: number;
+    experiments: number;
+    competitors: number;
+    liveDiscovery: boolean;
+    api: boolean;
+    automation: boolean;
+    crm: boolean;
+  };
+  features: string[];
+  cta: string;
+};
+
+export const PLANS: Record<PlanId, Plan> = {
+  FREE: {
+    id: "FREE",
+    name: "Free",
+    priceCents: 0,
+    tagline: "Validate the loop on one product.",
+    limits: {
+      products: 1,
+      opportunitiesSurfaced: 15,
+      aiCreditsPerMonth: 50,
+      seats: 1,
+      experiments: 1,
+      competitors: 1,
+      liveDiscovery: false,
+      api: false,
+      automation: false,
+      crm: false,
+    },
+    features: ["1 product", "Basic intelligence", "Limited opportunities", "Basic strategist"],
+    cta: "Start free",
+  },
+  MAKER: {
+    id: "MAKER",
+    name: "Maker",
+    priceCents: 1500,
+    tagline: "For solo founders hunting their first 100 customers.",
+    limits: {
+      products: 2,
+      opportunitiesSurfaced: 60,
+      aiCreditsPerMonth: 500,
+      seats: 1,
+      experiments: 3,
+      competitors: 3,
+      liveDiscovery: true,
+      api: false,
+      automation: false,
+      crm: false,
+    },
+    features: [
+      "Expanded discovery",
+      "Intent detection",
+      "Opportunity scoring",
+      "AI content drafts",
+      "Basic analytics",
+    ],
+    cta: "Get Maker",
+  },
+  GROWTH: {
+    id: "GROWTH",
+    name: "Growth",
+    priceCents: 3900,
+    tagline: "For teams running distribution as a system.",
+    limits: {
+      products: 5,
+      opportunitiesSurfaced: 200,
+      aiCreditsPerMonth: 2000,
+      seats: 3,
+      experiments: 10,
+      competitors: 10,
+      liveDiscovery: true,
+      api: false,
+      automation: true,
+      crm: false,
+    },
+    features: [
+      "Multiple products",
+      "Prospect intelligence",
+      "Experiments",
+      "Competitor monitoring",
+      "Advanced analytics",
+    ],
+    cta: "Get Growth",
+  },
+  PRO: {
+    id: "PRO",
+    name: "Pro",
+    priceCents: 9900,
+    tagline: "The full distribution department, automated.",
+    limits: {
+      products: 25,
+      opportunitiesSurfaced: 1000,
+      aiCreditsPerMonth: 10000,
+      seats: 10,
+      experiments: 50,
+      competitors: 50,
+      liveDiscovery: true,
+      api: true,
+      automation: true,
+      crm: true,
+    },
+    features: [
+      "Advanced discovery",
+      "Teams",
+      "API access",
+      "Automation",
+      "Advanced learning",
+      "CRM integrations",
+    ],
+    cta: "Get Pro",
+  },
+};
+
+export const PLAN_ORDER: PlanId[] = ["FREE", "MAKER", "GROWTH", "PRO"];
+
+export function planOf(planId: string | null | undefined): Plan {
+  return PLANS[(planId as PlanId) ?? "FREE"] ?? PLANS.FREE;
+}
+
+export function creditPackPriceCents(credits: number): number {
+  // Usage-based credits: $1 per 20 AI credits, sold in packs.
+  return Math.round((credits / 20) * 100);
+}
+
+export function assertWithin(limit: number, current: number, label: string) {
+  if (current >= limit) {
+    throw new LimitReached(label, limit, current);
+  }
+}
+
+export class LimitReached extends AppError {
+  constructor(
+    public label: string,
+    public limit: number,
+    public current: number
+  ) {
+    // 402 Payment Required: the message tells the user exactly which plan
+    // limit they hit, and the UI surfaces it instead of a generic 500.
+    super("PLAN_LIMIT", `${label} limit reached (${current}/${limit}) on your plan.`, 402, { label, limit, current });
+  }
+}
