@@ -1,12 +1,7 @@
 import { requirePage } from "@/lib/auth/guard";
 import { betaEntitlementSchema } from "@/lib/validation/schemas";
-import { prisma } from "@/lib/db";
-import {
-  activateBetaEntitlement,
-  getActiveBetaEntitlement,
-  isBetaEntitlementActive,
-} from "@/lib/betaEntitlement/betaEntitlement.service";
-import { Button, Card, CardHeader, Field, Input, Modal, SectionLabel } from "@/components/ui";
+import { activateBetaEntitlement, isBetaEntitlementActive } from "@/lib/betaEntitlement/betaEntitlement.service";
+import { Button, Card, CardHeader, Field, Input, Modal, SectionLabel, Toast, Toaster } from "@/components/ui";
 import { useState } from "react";
 
 export const metadata = { title: "Beta Program" };
@@ -59,7 +54,7 @@ export default async function BetaPage() {
       }
 
       // Activate beta entitlement
-      const entitlement = await activateBetaEntitlement(auth.orgId, auth.user.id, cohort);
+      const entitlement = await activateBetaEntitlement(auth.orgId, auth.userId, cohort);
       setIsActive(true);
       setBetaEntitlement(entitlement);
       
@@ -93,19 +88,11 @@ export default async function BetaPage() {
 
       {toast && (
         <div className="mb-4">
-          <div
-            role="status"
-            className={`rounded-md px-4 py-3 text-sm ${
-              toast.type === "success" ? "bg-good-soft text-good" : "bg-danger-soft text-danger"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-4">
-              <span>{toast.message}</span>
-              <button type="button" onClick={() => setToast(null)} aria-label="Close notification">
-                ×
-              </button>
-            </div>
-          </div>
+          <Toast 
+            onClose={() => setToast(null)} 
+            title={toast.type === "success" ? "Success" : "Error"} 
+            description={toast.message}
+          />
         </div>
       )}
 
@@ -160,52 +147,7 @@ export default async function BetaPage() {
                 <h3 className="text-sm font-medium">Activate Beta</h3>
                 <p className="text-xs text-ink-mute">Click the button below to activate 30 days of Pro access</p>
               </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
-                3
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium">Test & Provide Feedback</h3>
-                <p className="text-xs text-ink-mute">Use the platform freely for 30 days and share your feedback</p>
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-md bg-accent-100 text-accent">
-                4
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium">Automatic Downgrade</h3>
-                <p className="text-xs text-ink-mute">After 30 days, your account will automatically revert to the Free plan</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between mt-6">
-            <Button 
-              onClick={handleActivate}
-              disabled={isActivating}
-              className={`w-full ${isActivating ? "opacity-50" : ""}`}
-            >
-              {isActivating ? "Activating..." : "Activate 30-Day Beta Access"}
-            </Button>
-          </div>
-        </Card>
-      )}
-      
-      <div className="mt-6">
-        <Card>
-          <CardHeader title="Important Notes" />
-          <div className="space-y-3">
-            <p className="text-sm text-ink-mute">
-              <strong>No Credit Card Required:</strong> The beta program does not require a credit card to activate.
-            </p>
-            <p className="text-sm text-ink-mute">
-              <strong>Automatic Downgrade:</strong> After 30 days, your account will automatically revert to the Free plan.
-            </p>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
+            </div
+__zcode_status=$?
+if [ "$__zcode_status" -eq 0 ]; then pwd -P > '/c/Users/clift/AppData/Local/Temp/zcode-4258b866-aba3-4f80-9c04-535f9ce6eead-cwd'; fi
+exit "$__zcode_status"

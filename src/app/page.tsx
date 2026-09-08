@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button, Badge, Card, SectionLabel } from "@/components/ui";
 import { DiscoveryDemo, Faq, LoopDiagram } from "@/components/marketing";
-import { PLANS, PLAN_ORDER } from "@/lib/entitlements";
+import { PLANS } from "@/lib/entitlements";
 import { fmtMoney } from "@/lib/utils";
 
 const NAV = [
@@ -436,9 +436,9 @@ export default function LandingPage() {
           <SectionLabel>Pricing</SectionLabel>
           <h2 className="display text-3xl font-semibold tracking-tight mt-4">Start free. Scale when distribution compounds.</h2>
           <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {PLAN_ORDER.map((id) => {
-              const plan = PLANS[id];
+            {Object.entries(PLANS).map(([id, plan]) => {
               const featured = id === "GROWTH";
+              const features = "features" in plan && Array.isArray(plan.features) ? plan.features : [];
               return (
                 <Card key={id} className={`p-5 flex flex-col ${featured ? "ring-2 ring-ink/80" : ""}`}>
                   {featured ? <Badge tone="neutral" className="self-start mb-2 bg-ink text-white">Most popular</Badge> : null}
@@ -447,14 +447,20 @@ export default function LandingPage() {
                     {plan.priceCents === 0 ? "$0" : fmtMoney(plan.priceCents)}
                     <span className="text-xs text-ink-faint font-normal">/mo</span>
                   </div>
-                  <p className="text-2xs text-ink-mute mt-1.5 leading-relaxed">{plan.tagline}</p>
+                  <p className="text-2xs text-ink-mute mt-1.5 leading-relaxed">
+                    {"tagline" in plan && typeof plan.tagline === "string"
+                      ? plan.tagline
+                      : "Flexible distribution intelligence for your stage."}
+                  </p>
                   <ul className="mt-4 space-y-1.5 flex-1">
-                    {plan.features.map((f) => (
+                    {features.map((f) => (
                       <li key={f} className="text-xs text-ink-soft flex gap-1.5"><span className="text-good">✓</span>{f}</li>
                     ))}
                   </ul>
                   <Link href="/signup" className="mt-5">
-                    <Button variant={featured ? "primary" : "secondary"} className="w-full">{plan.cta}</Button>
+                    <Button variant={featured ? "primary" : "secondary"} className="w-full">
+                      {"cta" in plan && typeof plan.cta === "string" ? plan.cta : "Get started"}
+                    </Button>
                   </Link>
                 </Card>
               );

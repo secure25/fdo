@@ -1,7 +1,14 @@
-import { prisma } from "./db";
-import { betaEntitlementSchema, betaFeedbackSchema } from "./validation/schemas";
-import { jparse } from "./jsonfield";
-import { logger } from "./logger";
+import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
+
+const logger = {
+  info: (...args: unknown[]) => console.info(...args)
+};
+
+function jparse<T>(value: unknown): T {
+  if (typeof value !== "string") return value as T;
+  return JSON.parse(value) as T;
+}
 
 export type BetaEntitlementStatus = "ACTIVE" | "EXPIRED" | "REVOKED";
 
@@ -69,7 +76,21 @@ export async function activateBetaEntitlement(
   });
 
   logger.info("beta entitlement activated", { orgId, userId, cohort });
-  return betaEntitlement;
+  return {
+    id: betaEntitlement.id,
+    orgId: betaEntitlement.orgId,
+    userId: betaEntitlement.userId,
+    startsAt: betaEntitlement.startsAt,
+    endsAt: betaEntitlement.endsAt,
+    status: betaEntitlement.status as BetaEntitlementStatus,
+    cohort: betaEntitlement.cohort,
+    auditLog: jparse<Array<{
+      timestamp: string;
+      action: string;
+      userId: string;
+      details: Record<string, unknown>;
+    }>>(betaEntitlement.auditLog ?? "[]")
+  };
 }
 
 /**
@@ -268,7 +289,7 @@ export async function addAuditLog(
           timestamp: new Date().toISOString(),
           action,
           userId,
-          details
+          details: details as Prisma.InputJsonValue
         }
       }
     }
@@ -303,4 +324,8 @@ export async function createBetaFeedback(
     orgId: feedbackEntry.orgId,
     userId: feedbackEntry.userId,
     rating: feedbackEntry.rating,
-    feedback: feed
+    feedback: feedbackEntry.feedback,
+    createdAt: feedbackEntry.createdAt
+  };
+}
+
