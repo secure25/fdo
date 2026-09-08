@@ -8,7 +8,7 @@ export const POST = withRoute(
     await assertSameOrigin();
     const auth = await requireApi();
     const data = campaignSchema.parse(await req.json());
-    const campaign = await createCampaign(auth.orgId, null, data);
+    const campaign = await createCampaign(auth.orgId, null, { ...data, goalMetric: data.goalMetric ?? undefined });
     return json({ ok: true, id: campaign.id });
   },
   { name: "campaigns/create" }

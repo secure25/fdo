@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui";
-import { isBetaEntitlementActive, getActiveBetaEntitlement } from "@/lib/betaEntitlement/betaEntitlement.service";
 
 type Status = "idle" | "active" | "expired" | "none";
 
 export function BetaBadge({ orgId }: { orgId: string }) {
   const [status, setStatus] = useState<Status>("idle");
-  const [betaEntitlement, setBetaEntitlement] = useState<any>(null);
   const [daysRemaining, setDaysRemaining] = useState<number>(0);
 
   useEffect(() => {
@@ -17,27 +15,34 @@ export function BetaBadge({ orgId }: { orgId: string }) {
       return;
     }
 
+    let mounted = true;
     const checkStatus = async () => {
-      const active = await isBetaEntitlementActive(orgId);
-      if (active) {
-        const entitlement = await getActiveBetaEntitlement(orgId);
-        setBetaEntitlement(entitlement);
-        setStatus("active");
-        
-        // Calculate days remaining
-        const msRemaining = entitlement.endsAt.getTime() - Date.now();
-        const days = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
-        setDaysRemaining(days);
-      } else {
-        setStatus("expired");
-        setDaysRemaining(0);
+      try {
+        const res = await fetch("/api/betaEntitlement");
+        if (!res.ok) {
+          if (mounted) setStatus("none");
+          return;
+        }
+        const data = await res.json();
+        if (!mounted) return;
+        if (data.active && data.betaEntitlement) {
+          setStatus("active");
+          setDaysRemaining(data.betaEntitlement.daysRemaining ?? 0);
+        } else {
+          setStatus("none");
+        }
+      } catch {
+        if (mounted) setStatus("none");
       }
     };
 
     checkStatus();
+    return () => {
+      mounted = false;
+    };
   }, [orgId]);
 
-  if (status === "none") {
+  if (status === "none" || status === "idle") {
     return null;
   }
 
@@ -62,3 +67,4 @@ export function BetaBadge({ orgId }: { orgId: string }) {
 
   return null;
 }
+

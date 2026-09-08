@@ -1,79 +1,161 @@
 import { prisma } from "./db";
-import { limitReached, LimitReached } from "./limitReached";
-import { limitReached as limitReachedFunc, assertWithin } from "./limitReached";
-import { getActiveBetaEntitlement, isBetaEntitlementActive } from "./betaEntitlement/betaEntitlement.service";
+import { AppError, limitReached } from "./errors";
+import { isBetaEntitlementActive } from "./betaEntitlement/betaEntitlement.service";
 
 export type PlanId = "FREE" | "MAKER" | "GROWTH" | "PRO";
 export type EntitlementId = "MAKER" | "GROWTH" | "PRO";
 
 export type Plan = {
-  name: PlanId;
+  id: PlanId;
+  name: string;
   priceCents: number;
+  tagline: string;
   limits: {
     products: number;
+    opportunitiesSurfaced: number; // per scan day
+    aiCreditsPerMonth: number;
     seats: number;
-    opportunitiesSurfaced: number;
     experiments: number;
     competitors: number;
     liveDiscovery: boolean;
-    aiCreditsPerMonth: number;
+    api: boolean;
+    automation: boolean;
+    crm: boolean;
   };
+  features: string[];
+  cta: string;
 };
 
 export const PLANS: Record<PlanId, Plan> = {
   FREE: {
-    name: "FREE",
+    id: "FREE",
+    name: "Free",
     priceCents: 0,
+    tagline: "Validate the loop on one product.",
     limits: {
-      products: 3,
-      seats: 1,
-      opportunitiesSurfaced: 5,
-      experiments: 0,
-      competitors: 0,
-      liveDiscovery: false,
-      aiCreditsPerMonth: 0,
-    },
-  },
-  MAKER: {
-    name: "MAKER",
-    priceCents: 1500,
-    limits: {
-      products: 10,
-      seats: 3,
+      products: 1,
       opportunitiesSurfaced: 15,
+      aiCreditsPerMonth: 50,
+      seats: 1,
       experiments: 1,
       competitors: 1,
-      liveDiscovery: true,
-      aiCreditsPerMonth: 100,
+      liveDiscovery: false,
+      api: false,
+      automation: false,
+      crm: false,
     },
+    features: ["1 product", "Basic intelligence", "Limited opportunities", "Basic strategist"],
+    cta: "Start free",
+  },
+  MAKER: {
+    id: "MAKER",
+    name: "Maker",
+    priceCents: 1500,
+    tagline: "For solo founders hunting their first 100 customers.",
+    limits: {
+      products: 2,
+      opportunitiesSurfaced: 60,
+      aiCreditsPerMonth: 500,
+      seats: 1,
+      experiments: 3,
+      competitors: 3,
+      liveDiscovery: true,
+      api: false,
+      automation: false,
+      crm: false,
+    },
+    features: [
+      "Expanded discovery",
+      "Intent detection",
+      "Opportunity scoring",
+      "AI content drafts",
+      "Basic analytics",
+    ],
+    cta: "Get Maker",
   },
   GROWTH: {
-    name: "GROWTH",
+    id: "GROWTH",
+    name: "Growth",
     priceCents: 3900,
+    tagline: "For teams running distribution as a system.",
     limits: {
-      products: 25,
-      seats: 5,
-      opportunitiesSurfaced: 25,
-      experiments: 2,
-      competitors: 5,
-      liveDiscovery: true,
-      aiCreditsPerMonth: 250,
-    },
-  },
-  PRO: {
-    name: "PRO",
-    priceCents: 9900,
-    limits: {
-      products: 100,
-      seats: 10,
-      opportunitiesSurfaced: 50,
-      experiments: 5,
+      products: 5,
+      opportunitiesSurfaced: 200,
+      aiCreditsPerMonth: 2000,
+      seats: 3,
+      experiments: 10,
       competitors: 10,
       liveDiscovery: true,
-      aiCreditsPerMonth: 500,
+      api: false,
+      automation: true,
+      crm: false,
     },
+    features: [
+      "Multiple products",
+      "Prospect intelligence",
+      "Experiments",
+      "Competitor monitoring",
+      "Advanced analytics",
+    ],
+    cta: "Get Growth",
+  },
+  PRO: {
+    id: "PRO",
+    name: "Pro",
+    priceCents: 9900,
+    tagline: "The full distribution department, automated.",
+    limits: {
+      products: 25,
+      opportunitiesSurfaced: 1000,
+      aiCreditsPerMonth: 10000,
+      seats: 10,
+      experiments: 50,
+      competitors: 50,
+      liveDiscovery: true,
+      api: true,
+      automation: true,
+      crm: true,
+    },
+    features: [
+      "Advanced discovery",
+      "Teams",
+      "API access",
+      "Automation",
+      "Advanced learning",
+      "CRM integrations",
+    ],
+    cta: "Get Pro",
   },
 };
+
+export const PLAN_ORDER: PlanId[] = ["FREE", "MAKER", "GROWTH", "PRO"];
+
+export function planOf(planId: string | null | undefined): Plan {
+  return PLANS[(planId as PlanId) ?? "FREE"] ?? PLANS.FREE;
+}
+
+export function creditPackPriceCents(credits: number): number {
+  // Usage-based credits: $1 per 20 AI credits, sold in packs.
+  return Math.round((credits / 20) * 100);
+}
+
+export function assertWithin(limit: number, current: number, label: string) {
+  if (current >= limit) {
+    throw new LimitReached(label, limit, current);
+  }
+}
+
+export class LimitReached extends AppError {
+  constructor(
+    public label: string,
+    public limit: number,
+    public current: number
+  ) {
+    // 402 Payment Required: the message tells the user exactly which plan
+    // limit they hit, and the UI surfaces it instead of a generic 500.
+    super("PLAN_LIMIT", `${label} limit reached (${current}/${limit}) on your plan.`, 402, { label, limit, current });
+  }
+}
 
 /**
  * Resolves the effective plan for an organization, considering:
@@ -88,19 +170,7 @@ export async function resolveEffectivePlan(orgId: string): Promise<Plan> {
   });
 
   if (subscription && subscription.status === "ACTIVE") {
-    // Map the subscription plan to the corresponding Plan object
-    switch (subscription.plan) {
-      case "MAKER":
-        return PLANS.MAKER;
-      case "GROWTH":
-        return PLANS.GROWTH;
-      case "PRO":
-        return PLANS.PRO;
-      case "FREE":
-        return PLANS.FREE;
-      default:
-        return PLANS.FREE;
-    }
+    return planOf(subscription.plan);
   }
 
   // 2. Check for active beta entitlement
@@ -123,7 +193,7 @@ export async function resolveEffectivePlan(orgId: string): Promise<Plan> {
 export async function hasPlanAccess(orgId: string, planId: PlanId): Promise<boolean> {
   const effectivePlan = await resolveEffectivePlan(orgId);
   const planOrder: PlanId[] = ["FREE", "MAKER", "GROWTH", "PRO"];
-  const effectivePlanIndex = planOrder.indexOf(effectivePlan.name);
+  const effectivePlanIndex = planOrder.indexOf(effectivePlan.id);
   const requiredPlanIndex = planOrder.indexOf(planId);
   
   return effectivePlanIndex >= requiredPlanIndex;
@@ -140,7 +210,7 @@ export async function assertLimit(orgId: string, limitName: keyof Plan["limits"]
   const effectivePlan = await resolveEffectivePlan(orgId);
   const limit = effectivePlan.limits[limitName];
   
-  if (current >= limit) {
+  if (typeof limit === "number" && current >= limit) {
     throw new LimitReached(limitName, limit, current);
   }
 }
@@ -162,15 +232,7 @@ export async function assertWithinPlan(orgId: string, limitName: keyof Plan["lim
  * @returns The price in cents
  */
 export async function getPlanPriceCents(orgId: string, planId: PlanId): Promise<number> {
-  // For beta entitlement checks, we still return the actual plan price
-  // The entitlement check happens at the feature level, not pricing level
-  switch (planId) {
-    case "MAKER": return PLANS.MAKER.priceCents;
-    case "GROWTH": return PLANS.GROWTH.priceCents;
-    case "PRO": return PLANS.PRO.priceCents;
-    case "FREE": return PLANS.FREE.priceCents;
-    default: return PLANS.FREE.priceCents;
-  }
+  return planOf(planId).priceCents;
 }
 
 /**

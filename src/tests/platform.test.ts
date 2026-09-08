@@ -64,8 +64,15 @@ describe("AI provider utilities", () => {
   });
 
   it("returns null from tryAI when no provider is configured", async () => {
-    const result = await tryAI(async () => "never", { label: "test" });
-    expect(result).toBeNull();
+    const { env } = await import("@/lib/env");
+    const original = (env.ai as { apiKey: string }).apiKey;
+    try {
+      (env.ai as { apiKey: string }).apiKey = "";
+      const result = await tryAI(async () => "never", { label: "test" });
+      expect(result).toBeNull();
+    } finally {
+      (env.ai as { apiKey: string }).apiKey = original;
+    }
   });
 });
 

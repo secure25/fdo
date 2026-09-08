@@ -1,11 +1,11 @@
 import { withRoute, json } from "@/lib/api";
 import { requireApi } from "@/lib/auth/guard";
+import { prisma } from "@/lib/db";
 import { betaEntitlementSchema } from "@/lib/validation/schemas";
 import { activateBetaEntitlement, getActiveBetaEntitlement, isBetaEntitlementActive, addAuditLog } from "@/lib/betaEntitlement/betaEntitlement.service";
 
 export const POST = withRoute(
   async ({ req }) => {
-    await requireApi();
     const auth = await requireApi();
     const data = betaEntitlementSchema.parse(await req.json());
     
@@ -37,7 +37,7 @@ export const POST = withRoute(
     // Activate the beta entitlement
     const betaEntitlement = await activateBetaEntitlement(
       auth.orgId,
-      auth.userId,
+      auth.user.id,
       data.cohort || "BETA_DEFAULT"
     );
     
@@ -45,7 +45,7 @@ export const POST = withRoute(
     await addAuditLog(
       auth.orgId,
       "BETA_ACTIVATED_VIA_API",
-      auth.userId,
+      auth.user.id,
       { cohort: data.cohort }
     );
     
