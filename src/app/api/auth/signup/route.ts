@@ -5,7 +5,7 @@ import { signup } from "@/lib/services/workspace";
 import { setSessionCookie } from "@/lib/auth/session";
 import { assertSameOrigin } from "@/lib/auth/guard";
 
-export const POST = withRoute<{ name: string; email: string; password: string; orgName?: string }>(
+export const POST = withRoute<{ name: string; email: string; password: string; orgName?: string; inviteCode: string }>(
   async ({ req, ip }) => {
     await assertSameOrigin();
     const body = signupSchema.parse(await req.json());

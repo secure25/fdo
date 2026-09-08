@@ -404,3 +404,39 @@ describe("Experiment edge", () => {
     expect(c.recommendation).toMatch(/shift the majority/i);
   });
 });
+
+describe("Private Beta Invite System", () => {
+  it("defines the exact 10 founding invite codes", async () => {
+    const { ALLOWED_BETA_CODES } = await import("@/lib/services/workspace");
+    expect(ALLOWED_BETA_CODES).toHaveLength(10);
+    for (let i = 1; i <= 10; i++) {
+      expect(ALLOWED_BETA_CODES).toContain(`FOUNDER${i}`);
+    }
+  });
+
+  it("requires inviteCode in signupSchema", async () => {
+    const { signupSchema } = await import("@/lib/validation/schemas");
+    const valid = signupSchema.safeParse({
+      name: "Founder One",
+      email: "founder1@example.com",
+      password: "password123",
+      inviteCode: "FOUNDER1",
+    });
+    expect(valid.success).toBe(true);
+
+    const missingCode = signupSchema.safeParse({
+      name: "Founder Two",
+      email: "founder2@example.com",
+      password: "password123",
+    });
+    expect(missingCode.success).toBe(false);
+
+    const emptyCode = signupSchema.safeParse({
+      name: "Founder Three",
+      email: "founder3@example.com",
+      password: "password123",
+      inviteCode: "   ",
+    });
+    expect(emptyCode.success).toBe(false);
+  });
+});

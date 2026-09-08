@@ -2,15 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button, Field, Input, Badge } from "@/components/ui";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button, Field, Input } from "@/components/ui";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const codeParam = searchParams.get("code") ?? "";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [inviteCode, setInviteCode] = useState(codeParam);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +26,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       const res = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password, orgName: orgName || undefined }),
+        body: JSON.stringify(
+          mode === "login"
+            ? { email, password }
+            : {
+                name,
+                email,
+                password,
+                orgName: orgName || undefined,
+                inviteCode: inviteCode.trim().toUpperCase(),
+              }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -38,28 +52,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     }
   }
 
-  async function demoLogin() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "demo@founderos.app", password: "demo1234" }),
-      });
-      if (!res.ok) {
-        setError("Demo account unavailable — run the seed script");
-        setLoading(false);
-        return;
-      }
-      router.push("/app");
-      router.refresh();
-    } catch {
-      setError("Network error");
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
@@ -69,13 +61,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </Link>
         <h1 className="display text-2xl font-semibold mt-6">{mode === "login" ? "Welcome back" : "Create your workspace"}</h1>
         <p className="text-xs text-ink-mute mt-1.5">
-          {mode === "login" ? "Sign in to your distribution workspace." : "Free plan, no credit card. First discovery scan runs immediately."}
+          {mode === "login"
+            ? "Sign in to your distribution workspace."
+            : "Private Beta — Invitation required. 30 days complimentary Pro access included."}
         </p>
       </div>
 
       <form onSubmit={submit} className="space-y-3.5">
         {mode === "signup" ? (
           <>
+            <Field label="Private Beta Invite Code" hint="Required for access. 30 days of Pro included.">
+              <Input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="e.g. FOUNDER1"
+                required
+                autoCapitalize="characters"
+              />
+            </Field>
             <Field label="Your name">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ada Lovelace" required minLength={2} />
             </Field>
@@ -97,19 +100,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {loading ? "Working…" : mode === "login" ? "Sign in" : "Create workspace"}
         </Button>
       </form>
-
-      <div className="my-4 flex items-center gap-3">
-        <div className="h-px bg-paper-line flex-1" />
-        <span className="text-2xs text-ink-faint">or</span>
-        <div className="h-px bg-paper-line flex-1" />
-      </div>
-
-      <Button variant="secondary" className="w-full" onClick={demoLogin} disabled={loading}>
-        Explore the demo workspace →
-      </Button>
-      <div className="mt-2 text-center">
-        <Badge tone="neutral">demo@founderos.app · demo1234</Badge>
-      </div>
 
       <p className="text-xs text-ink-mute text-center mt-6">
         {mode === "login" ? (

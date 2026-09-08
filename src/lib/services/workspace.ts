@@ -37,7 +37,36 @@ export async function ensureCommunities() {
   }
 }
 
-export async function signup(input: { name: string; email: string; password: string; orgName?: string }, meta: { userAgent?: string; ip?: string }) {
+export const ALLOWED_BETA_CODES = [
+  "FOUNDER1",
+  "FOUNDER2",
+  "FOUNDER3",
+  "FOUNDER4",
+  "FOUNDER5",
+  "FOUNDER6",
+  "FOUNDER7",
+  "FOUNDER8",
+  "FOUNDER9",
+  "FOUNDER10",
+] as const;
+
+export async function signup(
+  input: { name: string; email: string; password: string; orgName?: string; inviteCode: string },
+  meta: { userAgent?: string; ip?: string }
+) {
+  const normalizedCode = (input.inviteCode || "").trim().toUpperCase();
+  if (!ALLOWED_BETA_CODES.includes(normalizedCode as any)) {
+    throw conflict("Invalid invite code. Please enter a valid private beta invite code.");
+  }
+
+  // Verify that this unique code has not already been used by another organization
+  const alreadyRedeemed = await prisma.betaEntitlement.findFirst({
+    where: { cohort: normalizedCode },
+  });
+  if (alreadyRedeemed) {
+    throw conflict("This invite code has already been redeemed. Each code can only be used once.");
+  }
+
   const email = input.email.toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw conflict("An account with this email already exists");
@@ -48,6 +77,11 @@ export async function signup(input: { name: string; email: string; password: str
   });
 
   const org = await provisionOrg(input.orgName?.trim() || `${input.name.split(" ")[0]}'s workspace`, user.id);
+
+  // Automatically activate 30-day Pro beta entitlement for this organization
+  const { activateBetaEntitlement } = await import("../betaEntitlement/betaEntitlement.service");
+  await activateBetaEntitlement(org.id, user.id, normalizedCode);
+
   const { createSession } = await import("../auth/session");
   const session = await createSession(user.id, org.id, meta);
   return { user, org, session };
