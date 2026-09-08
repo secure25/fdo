@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   },
   description:
     "An AI-powered distribution operating system that discovers your customers, identifies buying signals, recommends where to engage, and learns which channels actually generate revenue.",
+  icons: {
+    icon: "/icon.jpg",
+    apple: "/apple-icon.jpg",
+  },
 };
 
 export const viewport: Viewport = {
