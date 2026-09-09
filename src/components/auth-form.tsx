@@ -94,6 +94,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={mode === "signup" ? 8 : 1} />
         </Field>
 
+        {mode === "login" ? (
+          <div className="flex justify-end -mt-1">
+            <Link href="/forgot-password" className="text-2xs text-ink-mute hover:text-ink">
+              Forgot password?
+            </Link>
+          </div>
+        ) : null}
+
         {error ? <div className="text-xs text-bad bg-bad-soft rounded px-3 py-2">{error}</div> : null}
 
         <Button type="submit" className="w-full" disabled={loading}>

@@ -1,5 +1,6 @@
 import { requirePage } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db";
+import { jparse } from "@/lib/jsonfield";
 import { IntegrationsView } from "@/components/integrations-view";
 
 export const metadata = { title: "Integrations" };
@@ -19,7 +20,11 @@ export default async function IntegrationsPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <IntegrationsView
-        initial={rows.map((r) => ({ provider: r.provider, status: r.status }))}
+        initial={rows.map((r) => ({
+          provider: r.provider,
+          status: r.status,
+          config: jparse<Record<string, unknown>>(r.config, {}),
+        }))}
         sources={sources.map((s) => ({
           adapter: s.adapter,
           name: SOURCE_NAMES[s.adapter] ?? s.name,

@@ -21,6 +21,7 @@ import type { RawCandidate } from "./adapters";
 import { jparse, jstr } from "../jsonfield";
 import { logger } from "../logger";
 import { meter } from "../usage";
+import { dispatchOutboundWebhook } from "../services/webhooks";
 
 export type ProductPipelineContext = {
   orgId: string;
@@ -160,6 +161,25 @@ export async function runPipeline(candidates: RawCandidate[], ctx: ProductPipeli
 
       inserted += 1;
       if (band === "VERY_HIGH") veryHigh += 1;
+
+      // Dispatch outbound webhook for high-intent opportunities (score >= 75 or VERY_HIGH)
+      if (band === "VERY_HIGH" || score >= 75) {
+        dispatchOutboundWebhook(ctx.orgId, "opportunity.created", {
+          id: created.id,
+          title: created.title,
+          url: created.url,
+          platform: created.platform,
+          communityName: created.communityName,
+          author: created.author,
+          score: created.score,
+          band: created.band,
+          intentType: created.intentType,
+          postedAt: created.postedAt.toISOString(),
+          what: explanation.what,
+          whyMatters: explanation.whyMatters,
+          nextAction: explanation.nextAction,
+        }).catch(() => undefined);
+      }
 
       // Auto-create a recommendation for very-high-intent opportunities.
       if (band === "VERY_HIGH") {

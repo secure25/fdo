@@ -4,14 +4,22 @@ import { useState } from "react";
 import { Badge, Button, Card, CardHeader, Input, Field } from "@/components/ui";
 import { Plug, Webhook, Rss } from "lucide-react";
 
-const CATALOG = [
-  { provider: "slack", name: "Slack", blurb: "Daily opportunity digests in a channel of your choice.", tier: "GROWTH+" },
-  { provider: "hubspot", name: "HubSpot", blurb: "Sync prospects and conversions into your CRM.", tier: "PRO" },
-  { provider: "pipedrive", name: "Pipedrive", blurb: "Push qualified prospects into your deal pipeline.", tier: "PRO" },
-  { provider: "gmail", name: "Gmail", blurb: "Send approved outreach from your own address.", tier: "MAKER+" },
-  { provider: "stripe", name: "Stripe", blurb: "Attribute revenue events to acquisition channels.", tier: "GROWTH+" },
-  { provider: "zapier", name: "Zapier", blurb: "Connect opportunities to 6,000+ apps.", tier: "MAKER+" },
-  { provider: "webhook", name: "Webhooks", blurb: "POST every new very-high-intent opportunity to your endpoint.", tier: "ALL PLANS" },
+type IntegrationItem = {
+  provider: string;
+  name: string;
+  blurb: string;
+  tier: string;
+  comingSoon?: boolean;
+};
+
+const CATALOG: IntegrationItem[] = [
+  { provider: "slack", name: "Slack", blurb: "Daily opportunity digests in a channel of your choice.", tier: "GROWTH+", comingSoon: true },
+  { provider: "hubspot", name: "HubSpot", blurb: "Sync prospects and conversions into your CRM.", tier: "PRO", comingSoon: true },
+  { provider: "pipedrive", name: "Pipedrive", blurb: "Push qualified prospects into your deal pipeline.", tier: "PRO", comingSoon: true },
+  { provider: "gmail", name: "Gmail", blurb: "Send approved outreach from your own address.", tier: "MAKER+", comingSoon: true },
+  { provider: "stripe", name: "Stripe", blurb: "Attribute revenue events to acquisition channels.", tier: "GROWTH+", comingSoon: true },
+  { provider: "zapier", name: "Zapier", blurb: "Connect opportunities to 6,000+ apps.", tier: "MAKER+", comingSoon: true },
+  { provider: "webhook", name: "Webhooks", blurb: "POST high-intent opportunities (score ≥ 75) directly to your HTTP endpoint.", tier: "ALL PLANS", comingSoon: false },
 ];
 
 const SOURCE_NOTES: Record<string, string> = {
@@ -29,9 +37,16 @@ function timeAgoStr(iso: string): string {
 
 export type DiscoverySource = { adapter: string; name: string; status: string; lastRunAt: string | null; isLive: boolean };
 
-export function IntegrationsView({ initial, sources }: { initial: { provider: string; status: string }[]; sources: DiscoverySource[] }) {
+export function IntegrationsView({
+  initial,
+  sources,
+}: {
+  initial: { provider: string; status: string; config?: Record<string, unknown> | null }[];
+  sources: DiscoverySource[];
+}) {
   const [state, setState] = useState(Object.fromEntries(initial.map((i) => [i.provider, i.status])));
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const webhookInitial = initial.find((i) => i.provider === "webhook");
+  const [webhookUrl, setWebhookUrl] = useState((webhookInitial?.config?.url as string) ?? "");
   const [busy, setBusy] = useState<string | null>(null);
 
   async function toggle(provider: string, action: "connect" | "disconnect") {
@@ -40,7 +55,7 @@ export function IntegrationsView({ initial, sources }: { initial: { provider: st
       await fetch("/api/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, action, config: provider === "webhook" ? { url: webhookUrl } : undefined }),
+        body: JSON.stringify({ provider, action, config: provider === "webhook" ? { url: webhookUrl.trim() } : undefined }),
       });
       setState((prev) => ({ ...prev, [provider]: action === "connect" ? "CONNECTED" : "DISCONNECTED" }));
     } finally {
@@ -52,7 +67,7 @@ export function IntegrationsView({ initial, sources }: { initial: { provider: st
     <div>
       <div className="mb-6">
         <h1 className="text-lg font-semibold tracking-tight">Integrations</h1>
-        <p className="text-xs text-ink-faint mt-0.5">Connect Distribution OS to the tools you already use. CRM sync requires the Pro plan.</p>
+        <p className="text-xs text-ink-faint mt-0.5">Connect Distribution OS to the tools you already use. Native webhooks are active now.</p>
       </div>
 
       {/* Discovery sources (spec §4 — modular source adapters) */}
@@ -94,21 +109,42 @@ export function IntegrationsView({ initial, sources }: { initial: { provider: st
                   </span>
                 }
                 subtitle={c.blurb}
-                action={<Badge tone={connected ? "good" : "neutral"}>{connected ? "connected" : "off"}</Badge>}
+                action={
+                  c.comingSoon ? (
+                    <Badge tone="neutral">coming soon</Badge>
+                  ) : (
+                    <Badge tone={connected ? "good" : "neutral"}>{connected ? "connected" : "off"}</Badge>
+                  )
+                }
               />
               <div className="px-5 py-4">
                 {c.provider === "webhook" ? (
-                  <Field label="Endpoint URL" hint="Receives JSON on every new VERY_HIGH opportunity.">
-                    <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://yourapp.com/hooks/distribution-os" />
+                  <Field label="Endpoint URL" hint="Receives JSON on every new high-intent opportunity (score ≥ 75).">
+                    <Input
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      placeholder="https://yourapp.com/api/webhooks/fdo"
+                    />
                   </Field>
                 ) : null}
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-2xs font-mono text-ink-faint">{c.tier}</span>
-                  {connected ? (
-                    <Button size="sm" variant="ghost" onClick={() => toggle(c.provider, "disconnect")} disabled={busy === c.provider}>Disconnect</Button>
+                  {c.comingSoon ? (
+                    <Button size="sm" variant="secondary" disabled>
+                      Coming soon
+                    </Button>
+                  ) : connected ? (
+                    <Button size="sm" variant="ghost" onClick={() => toggle(c.provider, "disconnect")} disabled={busy === c.provider}>
+                      {busy === c.provider ? "Updating…" : "Disconnect"}
+                    </Button>
                   ) : (
-                    <Button size="sm" variant="secondary" onClick={() => toggle(c.provider, "connect")} disabled={busy === c.provider}>
-                      {c.provider === "webhook" ? (webhookUrl ? "Save & connect" : "Connect") : "Connect"}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => toggle(c.provider, "connect")}
+                      disabled={busy === c.provider || (c.provider === "webhook" && !webhookUrl.trim())}
+                    >
+                      {busy === c.provider ? "Connecting…" : c.provider === "webhook" ? "Save & connect" : "Connect"}
                     </Button>
                   )}
                 </div>

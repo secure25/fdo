@@ -146,3 +146,9 @@ export const strategistSchema = z.object({
   message: z.string().trim().min(1).max(2000),
 });
 
+export const teamInviteSchema = z.object({
+  email: z.string().trim().email(),
+  role: z.enum(["MEMBER", "ADMIN"]).default("MEMBER"),
+});
+
+

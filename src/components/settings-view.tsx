@@ -1,18 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Badge, Button, Card, CardHeader, Field, Input, SectionLabel } from "@/components/ui";
-import { Copy, KeyRound, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+
+export type TeamMember = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: string;
+};
 
 export type SettingsProps = {
-  user: { name: string; email: string };
+  user: { id?: string; name: string; email: string };
   org: { id: string; name: string; slug: string };
   products: { id: string; name: string; isDefault: boolean }[];
   planApi: boolean;
   apiKeys: { id: string; name: string; prefix: string; createdAt: string }[];
+  team?: {
+    members: TeamMember[];
+    seatsLimit: number;
+    planName: string;
+    currentUserId: string;
+    currentRole: string;
+  };
 };
 
-export function SettingsView({ user, org, products, planApi, apiKeys: initialKeys }: SettingsProps) {
+export function SettingsView({ user, org, products, planApi, apiKeys: initialKeys, team }: SettingsProps) {
   const [name, setName] = useState(user.name);
   const [orgName, setOrgName] = useState(org.name);
   const [defaultProductId, setDefaultProductId] = useState(products.find((p) => p.isDefault)?.id ?? "");
@@ -25,6 +42,18 @@ export function SettingsView({ user, org, products, planApi, apiKeys: initialKey
   const [newPassword, setNewPassword] = useState("");
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
+
+  // Team state
+  const [members, setMembers] = useState<TeamMember[]>(team?.members ?? []);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"MEMBER" | "ADMIN">("MEMBER");
+  const [teamMsg, setTeamMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [teamBusy, setTeamBusy] = useState(false);
+
+  const seatsLimit = team?.seatsLimit ?? 1;
+  const planName = team?.planName ?? "Free";
+  const canManageTeam = team?.currentRole === "OWNER" || team?.currentRole === "ADMIN";
+  const isFull = members.length >= seatsLimit;
 
   async function save() {
     await fetch("/api/integrations", {
@@ -77,11 +106,52 @@ export function SettingsView({ user, org, products, planApi, apiKeys: initialKey
     }
   }
 
+  async function inviteMember() {
+    if (!inviteEmail.trim()) return;
+    setTeamBusy(true);
+    setTeamMsg(null);
+    try {
+      const res = await fetch("/api/settings/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMembers((prev) => [...prev, data.member]);
+        setInviteEmail("");
+        setTeamMsg({ ok: true, text: `Invited ${inviteEmail} successfully!` });
+      } else {
+        setTeamMsg({ ok: false, text: data?.error?.message ?? "Failed to invite member." });
+      }
+    } catch {
+      setTeamMsg({ ok: false, text: "Network error inviting member." });
+    } finally {
+      setTeamBusy(false);
+    }
+  }
+
+  async function removeMember(id: string) {
+    if (!confirm("Are you sure you want to remove this team member?")) return;
+    const prev = members;
+    setMembers((m) => m.filter((item) => item.id !== id));
+    try {
+      const res = await fetch(`/api/settings/team?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error?.message ?? "Failed to remove member");
+        setMembers(prev);
+      }
+    } catch {
+      setMembers(prev);
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-        <p className="text-xs text-ink-faint mt-0.5">Profile, workspace and API access.</p>
+        <p className="text-xs text-ink-faint mt-0.5">Profile, team, workspace and API access.</p>
       </div>
 
       <Card>
@@ -106,6 +176,97 @@ export function SettingsView({ user, org, products, planApi, apiKeys: initialKey
             {saved ? <span className="text-2xs text-good">Saved ✓</span> : null}
             <Button size="sm" onClick={save}>Save changes</Button>
           </div>
+        </div>
+      </Card>
+
+      {/* Team & Seats Management */}
+      <Card>
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <Users size={15} /> Team & Seats
+            </span>
+          }
+          subtitle={`${members.length} of ${seatsLimit} seat${seatsLimit === 1 ? "" : "s"} used · ${planName} plan`}
+          action={
+            isFull ? (
+              <Badge tone="warn">Limit reached</Badge>
+            ) : (
+              <Badge tone="good">{seatsLimit - members.length} available</Badge>
+            )
+          }
+        />
+        <div className="p-5 space-y-4">
+          <div className="space-y-2">
+            {members.map((m) => {
+              const isSelf = m.userId === team?.currentUserId;
+              const isOwner = m.role === "OWNER";
+              return (
+                <div key={m.id} className="flex items-center justify-between rounded-md border border-paper-line px-3.5 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-paper-sunken border border-paper-line flex items-center justify-center text-xs font-semibold text-ink-mute">
+                      {(m.name || m.email).slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium flex items-center gap-2">
+                        {m.name || m.email}
+                        {isSelf ? <span className="text-2xs text-ink-faint font-normal">(you)</span> : null}
+                      </div>
+                      <div className="text-2xs text-ink-faint">{m.email}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <Badge tone={isOwner ? "good" : "neutral"}>{m.role.toLowerCase()}</Badge>
+                    {canManageTeam && !isOwner && !isSelf ? (
+                      <Button size="sm" variant="ghost" onClick={() => removeMember(m.id)}>
+                        <Trash2 size={12} className="text-bad" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {isFull ? (
+            <div className="flex items-center justify-between rounded-md border border-paper-line bg-paper-sunken/40 px-3.5 py-3">
+              <span className="text-xs text-ink-mute">
+                Seat limit reached for {planName} plan ({seatsLimit} seat{seatsLimit === 1 ? "" : "s"}).
+              </span>
+              <Link href="/app/billing">
+                <Button size="sm" variant="secondary">Upgrade plan</Button>
+              </Link>
+            </div>
+          ) : canManageTeam ? (
+            <div className="pt-2 border-t border-paper-line space-y-3">
+              <SectionLabel>Invite a team member</SectionLabel>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  className="flex-1"
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as "MEMBER" | "ADMIN")}
+                  className="h-9 rounded-md border border-paper-line bg-paper-raise px-3 text-xs"
+                >
+                  <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+                <Button size="sm" variant="secondary" onClick={inviteMember} disabled={teamBusy || !inviteEmail.trim()}>
+                  <Plus size={12} /> {teamBusy ? "Inviting…" : "Invite"}
+                </Button>
+              </div>
+              {teamMsg ? (
+                <div className={`text-2xs ${teamMsg.ok ? "text-good" : "text-bad"}`}>
+                  {teamMsg.text}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </Card>
 

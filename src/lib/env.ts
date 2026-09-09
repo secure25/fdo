@@ -56,8 +56,14 @@ export const env = {
     // Absolute path to the CLI entry (dist/index.js) if auto-detection fails.
     cliPath: str("FIRECRAWL_CLI_PATH", ""),
   },
+
+  email: {
+    resendApiKey: str("RESEND_API_KEY", ""),
+    from: str("EMAIL_FROM", "Founder Distribution OS <onboarding@resend.dev>"),
+  },
 } as const;
 
 export const hasAI = () => Boolean(env.ai.apiKey);
 export const hasStripe = () => Boolean(env.stripe.secretKey);
 export const hasPaddle = () => Boolean(env.paddle.apiKey);
+export const hasEmail = () => Boolean(env.email.resendApiKey);
