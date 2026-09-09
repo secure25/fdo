@@ -20,8 +20,8 @@ export async function GET(req: NextRequest) {
   try {
     // 1. Process due jobs in the queue
     let totalProcessed = 0;
-    // Drain up to 5 jobs per cron invocation
-    for (let i = 0; i < 5; i++) {
+    // Drain up to 15 jobs per cron invocation
+    for (let i = 0; i < 15; i++) {
       const count = await processDueJobs(HANDLERS);
       if (count === 0) break;
       totalProcessed += count;
