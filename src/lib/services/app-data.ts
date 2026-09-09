@@ -5,7 +5,7 @@
 
 import { prisma } from "../db";
 import { notFound, limitReached } from "../errors";
-import { assertWithin, planOf } from "../entitlements";
+import { assertWithin, resolveEffectivePlan } from "../entitlements";
 import { candidatesForArchetype } from "../engines/prospect";
 import { analyzeEvent, type CompetitorEventKind } from "../engines/competitor";
 import { enqueueJob } from "../jobs/queue";
@@ -141,8 +141,7 @@ export async function listCampaigns(orgId: string) {
 }
 
 export async function createCampaign(orgId: string, productId: string | null, data: { name: string; channel: string; objective: string; goalMetric?: string; scheduledAt?: string | null }) {
-  const sub = await prisma.subscription.findUnique({ where: { orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(orgId);
   const count = await prisma.campaign.count({ where: { orgId, status: { in: ["ACTIVE", "SCHEDULED", "DRAFT"] } } });
   if (count >= plan.limits.experiments * 2) throw limitReached("Active campaign limit reached on your plan.");
   const scheduledAt = data.scheduledAt ? new Date(data.scheduledAt) : null;
@@ -193,8 +192,7 @@ export async function addCampaignAction(orgId: string, campaignId: string, data:
 // ─── Experiments (spec §13) ───────────────────────────────────────────────────
 
 export async function createExperiment(orgId: string, productId: string | null, data: { name: string; hypothesis: string; channelA: string; channelB: string }) {
-  const sub = await prisma.subscription.findUnique({ where: { orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(orgId);
   const count = await prisma.experiment.count({ where: { orgId, status: "RUNNING" } });
   assertWithin(plan.limits.experiments, count, "Running experiments");
   return prisma.experiment.create({ data: { orgId, productId, name: data.name, hypothesis: data.hypothesis, channelA: data.channelA, channelB: data.channelB } });
@@ -228,8 +226,7 @@ export async function listCompetitors(orgId: string) {
 }
 
 export async function addCompetitor(orgId: string, productId: string | null, data: { name: string; url?: string; positioning?: string }) {
-  const sub = await prisma.subscription.findUnique({ where: { orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(orgId);
   const count = await prisma.competitor.count({ where: { orgId } });
   assertWithin(plan.limits.competitors, count, "Monitored competitors");
   return prisma.competitor.upsert({

@@ -1,7 +1,6 @@
 import { requirePage } from "@/lib/auth/guard";
 import { listOpportunities } from "@/lib/services/opportunities";
-import { planOf } from "@/lib/entitlements";
-import { prisma } from "@/lib/db";
+import { resolveEffectivePlan } from "@/lib/entitlements";
 import { OpportunityFeed } from "@/components/opportunity-feed";
 
 export const metadata = { title: "Opportunities" };
@@ -9,20 +8,19 @@ export const metadata = { title: "Opportunities" };
 export default async function OpportunitiesPage({
   searchParams,
 }: {
-  searchParams?: { band?: string; status?: string; intent?: string };
+  searchParams: { band?: string; channel?: string; status?: string; intent?: string };
 }) {
   const auth = await requirePage();
-  const sp = searchParams ?? {};
-  const [items, sub] = await Promise.all([
+  const sp = searchParams;
+  const [items, plan] = await Promise.all([
     listOpportunities(auth.orgId, {
       band: sp.band?.split(","),
-      status: sp.status?.split(","),
+      status: sp.status && sp.status !== "ALL" ? sp.status.split(",") : undefined,
       intent: sp.intent?.split(","),
       limit: 80,
     }),
-    prisma.subscription.findUnique({ where: { orgId: auth.orgId } }),
+    resolveEffectivePlan(auth.orgId),
   ]);
-  const plan = planOf(sub?.plan);
   return (
     <OpportunityFeed
       initial={items}

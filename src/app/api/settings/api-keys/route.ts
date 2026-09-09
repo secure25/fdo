@@ -2,7 +2,7 @@ import { withRoute, json } from "@/lib/api";
 import { requireApi, assertSameOrigin } from "@/lib/auth/guard";
 import { generateApiKey } from "@/lib/auth/password";
 import { prisma } from "@/lib/db";
-import { planOf } from "@/lib/entitlements";
+import { resolveEffectivePlan } from "@/lib/entitlements";
 import { forbidden } from "@/lib/errors";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ export const POST = withRoute(
   async ({ req }) => {
     await assertSameOrigin();
     const auth = await requireApi();
-    const plan = planOf((await prisma.subscription.findUnique({ where: { orgId: auth.orgId } }))?.plan);
+    const plan = await resolveEffectivePlan(auth.orgId);
     if (!plan.limits.api) throw forbidden("API access requires the Pro plan");
     const { name } = createSchema.parse(await req.json());
     const key = generateApiKey();

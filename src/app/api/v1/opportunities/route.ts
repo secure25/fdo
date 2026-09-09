@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sha256 } from "@/lib/auth/password";
 import { prisma } from "@/lib/db";
-import { planOf } from "@/lib/entitlements";
+import { resolveEffectivePlan } from "@/lib/entitlements";
 import { rateLimit } from "@/lib/ratelimit";
 import { toDTO } from "@/lib/services/opportunities";
 
@@ -16,8 +16,7 @@ async function authenticate(req: NextRequest) {
   const key = auth.slice(7).trim();
   const record = await prisma.apiKey.findUnique({ where: { keyHash: sha256(key) } });
   if (!record) return null;
-  const sub = await prisma.subscription.findUnique({ where: { orgId: record.orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(record.orgId);
   if (!plan.limits.api) return null;
   await prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } }).catch(() => undefined);
   return { orgId: record.orgId, plan };

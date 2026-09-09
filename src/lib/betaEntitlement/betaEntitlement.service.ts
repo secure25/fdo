@@ -75,6 +75,14 @@ export async function activateBetaEntitlement(
     }
   });
 
+  // Grant Pro plan AI credits (10,000 credits) to the organization's subscription
+  await prisma.subscription.updateMany({
+    where: { orgId },
+    data: {
+      creditsBalance: 10000,
+    },
+  });
+
   logger.info("beta entitlement activated", { orgId, userId, cohort });
   return {
     id: betaEntitlement.id,

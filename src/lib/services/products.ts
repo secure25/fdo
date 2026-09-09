@@ -9,14 +9,13 @@ import { analyzeProduct, type ProductInput, type ProductIntelligence } from "../
 import { buildDistributionMap } from "../engines/distribution-map";
 import { ARCHETYPES, COMMUNITIES } from "../engines/taxonomy";
 import { jstr } from "../jsonfield";
-import { assertWithin, planOf } from "../entitlements";
+import { assertWithin, resolveEffectivePlan } from "../entitlements";
 import { enqueueJob } from "../jobs/queue";
 import { generateSandboxCandidates } from "../discovery/sandbox-templates";
 import { runPipeline, communityMapFor } from "../discovery/orchestrator";
 
 export async function createProduct(orgId: string, input: ProductInput) {
-  const sub = await prisma.subscription.findUnique({ where: { orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(orgId);
   const count = await prisma.product.count({ where: { orgId } });
   assertWithin(plan.limits.products, count, "Products");
 

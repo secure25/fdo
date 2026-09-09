@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { planOf, type PlanId } from "./entitlements";
+import { planOf, resolveEffectivePlan, type PlanId } from "./entitlements";
 import { limitReached } from "./errors";
 import { logger } from "./logger";
 import { jstr } from "./jsonfield";
@@ -76,9 +76,9 @@ export async function creditsSummary(orgId: string) {
     where: { orgId, kind: "AI_CREDIT", createdAt: { gte: startOfMonth } },
     _sum: { amount: true },
   });
-  const plan = planOf(sub.plan);
+  const plan = await resolveEffectivePlan(orgId);
   return {
-    plan: sub.plan as PlanId,
+    plan: plan.id as PlanId,
     balance: Math.max(0, sub.creditsBalance),
     usedThisMonth: used._sum.amount ?? 0,
     monthlyGrant: plan.limits.aiCreditsPerMonth,

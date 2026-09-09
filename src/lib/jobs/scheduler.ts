@@ -8,7 +8,7 @@ import { logger } from "../logger";
 import { processDueJobs, enqueueJob, type JobHandler, type JobType } from "./queue";
 import { runPipeline, communityMapFor } from "../discovery/orchestrator";
 import { ADAPTERS } from "../discovery/adapters";
-import { planOf } from "../entitlements";
+import { resolveEffectivePlan } from "../entitlements";
 import { analyzeEvent, type CompetitorEventKind } from "../engines/competitor";
 import { classifyIntent } from "../engines/intent";
 import { meter } from "../usage";
@@ -26,9 +26,7 @@ const discoveryScan: JobHandler = async (payload) => {
   const orgId = String(payload.orgId);
   const productId = payload.productId ? String(payload.productId) : null;
   const useLive = Boolean(payload.live);
-
-  const sub = await prisma.subscription.findUnique({ where: { orgId } });
-  const plan = planOf(sub?.plan);
+  const plan = await resolveEffectivePlan(orgId);
 
   const product = productId
     ? await prisma.product.findUnique({ where: { id: productId }, include: { analysis: true } })
