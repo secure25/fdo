@@ -502,9 +502,12 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-white/10 bg-ink text-white/60">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div>© 2026 Founder Distribution OS — the distribution OS for the new generation of software founders.</div>
-          <div className="flex gap-5">
+        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <div>© 2026 Founder Distribution OS · Secure Sense Innovations. All rights reserved.</div>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-5">
+            <Link href="/terms" className="hover:text-white transition">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
+            <Link href="/refund-policy" className="hover:text-white transition">Refunds</Link>
             <a href="#pricing" className="hover:text-white transition">Pricing</a>
             <a href="#faq" className="hover:text-white transition">FAQ</a>
             <Link href="/login" className="hover:text-white transition">Sign in</Link>

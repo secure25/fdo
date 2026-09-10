@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Field, Input } from "@/components/ui";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Turnstile } from "@/components/turnstile";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function ForgotPasswordPage() {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), turnstileToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -81,6 +83,8 @@ export default function ForgotPasswordPage() {
             </Field>
 
             {error ? <div className="text-xs text-bad bg-bad-soft rounded px-3 py-2">{error}</div> : null}
+
+            <Turnstile onVerify={setTurnstileToken} />
 
             <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
               {loading ? "Sending link…" : "Send reset link"}

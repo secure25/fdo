@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui";
+import { Turnstile } from "@/components/turnstile";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -15,6 +16,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [name, setName] = useState("");
   const [orgName, setOrgName] = useState("");
   const [inviteCode, setInviteCode] = useState(codeParam);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,13 +30,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           mode === "login"
-            ? { email, password }
+            ? { email, password, turnstileToken }
             : {
                 name,
                 email,
                 password,
                 orgName: orgName || undefined,
                 inviteCode: inviteCode.trim().toUpperCase(),
+                turnstileToken,
               }
         ),
       });
@@ -104,9 +107,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
         {error ? <div className="text-xs text-bad bg-bad-soft rounded px-3 py-2">{error}</div> : null}
 
+        <Turnstile onVerify={setTurnstileToken} />
+
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Working…" : mode === "login" ? "Sign in" : "Create workspace"}
         </Button>
+
+        {mode === "signup" ? (
+          <p className="text-2xs text-ink-faint text-center leading-relaxed pt-1">
+            By creating an account, you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-ink" target="_blank">Terms</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-ink" target="_blank">Privacy Policy</Link>.
+          </p>
+        ) : null}
       </form>
 
       <p className="text-xs text-ink-mute text-center mt-6">
