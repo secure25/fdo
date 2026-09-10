@@ -13,3 +13,6 @@ coverage/
 cookies.txt
 shots/
 data/uploads
+
+# Sentry Config File
+.env.sentry-build-plugin
