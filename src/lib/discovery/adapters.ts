@@ -53,7 +53,11 @@ async function fetchJson(url: string, init?: RequestInit, timeoutMs = 12_000): P
     const res = await fetch(url, {
       ...init,
       signal: ctrl.signal,
-      headers: { "User-Agent": "FounderDistributionOS/1.0 (+https://founderos.app)", ...(init?.headers ?? {}) },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        ...(init?.headers ?? {}),
+      },
     });
     if (!res.ok) return null;
     return await res.json();
