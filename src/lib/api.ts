@@ -56,7 +56,6 @@ function errorResponse(err: unknown, requestId: string, route: string) {
       {
         error: {
           code: "VALIDATION",
-          message: "Invalid input",
           message,
           details: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
         },
