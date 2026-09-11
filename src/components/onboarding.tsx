@@ -54,11 +54,6 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name,
-          url: form.url || undefined,
-          description: form.description,
-          targetCustomer: form.targetCustomer || undefined,
-          industry: form.industry || undefined,
           name: form.name.trim(),
           url: cleanUrl || undefined,
           description: form.description.trim(),
@@ -71,7 +66,6 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error?.message ?? "Analysis failed");
         const detailMsg = data.error?.details?.[0]?.message;
         const msg = detailMsg
           ? `${data.error?.message ?? "Validation error"}: ${detailMsg}`
