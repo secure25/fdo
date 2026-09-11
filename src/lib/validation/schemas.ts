@@ -20,6 +20,20 @@ export const productSchema = z.object({
   targetCustomer: z.string().trim().max(160).optional().or(z.literal("")),
   industry: z.string().trim().max(80).optional().or(z.literal("")),
   geography: z.string().trim().max(80).optional().or(z.literal("")),
+  name: z.string().trim().min(2, "Product name must be at least 2 characters").max(120),
+  url: z.preprocess((val) => {
+    if (typeof val !== "string") return val;
+    const trimmed = val.trim();
+    if (!trimmed) return "";
+    if (!/^https?:\/\//i.test(trimmed) && trimmed.includes(".")) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  }, z.string().url("Please enter a valid website URL (e.g. yourproduct.com or https://yourproduct.com)").max(300).optional().or(z.literal(""))),
+  description: z.string().trim().min(20, "Description must be at least 20 characters").max(5000),
+  targetCustomer: z.string().trim().max(500).optional().or(z.literal("")),
+  industry: z.string().trim().max(200).optional().or(z.literal("")),
+  geography: z.string().trim().max(200).optional().or(z.literal("")),
   budgetBand: z.enum(["NONE", "LEAN", "MODERATE", "FUNDED"]).optional(),
   timePerWeek: z.coerce.number().int().min(0).max(80).optional(),
 });

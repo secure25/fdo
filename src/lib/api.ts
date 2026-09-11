@@ -40,11 +40,24 @@ export function withRoute<P = Record<string, string>>(
 
 function errorResponse(err: unknown, requestId: string, route: string) {
   if (err instanceof ZodError) {
+    const firstIssue = err.issues[0];
+    const pathStr = firstIssue?.path?.join(".");
+    const issueMsg = firstIssue?.message;
+    const message =
+      issueMsg && issueMsg !== "Required" && issueMsg !== "Invalid input"
+        ? pathStr
+          ? `${pathStr}: ${issueMsg}`
+          : issueMsg
+        : pathStr
+        ? `Invalid ${pathStr}`
+        : "Invalid input";
+
     return NextResponse.json(
       {
         error: {
           code: "VALIDATION",
           message: "Invalid input",
+          message,
           details: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
         },
       },

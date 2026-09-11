@@ -45,6 +45,11 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
     setLoading(true);
     setError(null);
     try {
+      let cleanUrl = form.url.trim();
+      if (cleanUrl && !/^https?:\/\//i.test(cleanUrl) && cleanUrl.includes(".")) {
+        cleanUrl = `https://${cleanUrl}`;
+      }
+
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,6 +59,11 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
           description: form.description,
           targetCustomer: form.targetCustomer || undefined,
           industry: form.industry || undefined,
+          name: form.name.trim(),
+          url: cleanUrl || undefined,
+          description: form.description.trim(),
+          targetCustomer: form.targetCustomer.trim() || undefined,
+          industry: form.industry.trim() || undefined,
           geography: form.geography || undefined,
           budgetBand: form.budgetBand,
           timePerWeek: parseInt(form.timePerWeek, 10) || 5,
@@ -62,6 +72,11 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
       const data = await res.json();
       if (!res.ok) {
         setError(data.error?.message ?? "Analysis failed");
+        const detailMsg = data.error?.details?.[0]?.message;
+        const msg = detailMsg
+          ? `${data.error?.message ?? "Validation error"}: ${detailMsg}`
+          : data.error?.message ?? "Analysis failed";
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -115,6 +130,7 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
               </div>
               <div className="flex justify-end pt-2">
                 <Button disabled={form.name.length < 2 || form.description.length < 20} onClick={() => setStep(1)}>Continue →</Button>
+                <Button disabled={form.name.trim().length < 2 || form.description.trim().length < 20} onClick={() => setStep(1)}>Continue →</Button>
               </div>
             </div>
           </Card>
@@ -149,6 +165,14 @@ export function OnboardingWizard({ orgName, userName }: { orgName: string; userN
                 </Select>
               </Field>
               {error ? <div className="text-xs text-bad bg-bad-soft rounded px-3 py-2">{error}</div> : null}
+              {error ? (
+                <div className="text-xs text-bad bg-bad-soft rounded px-3 py-2 space-y-1">
+                  <div>{error}</div>
+                  <div className="text-2xs text-ink-mute">
+                    Need to edit product details? Click <strong>← Back</strong> to modify Step 1.
+                  </div>
+                </div>
+              ) : null}
               <div className="flex justify-between pt-2">
                 <Button variant="ghost" onClick={() => setStep(0)}>← Back</Button>
                 <Button onClick={analyze} disabled={loading}>{loading ? "Analyzing product…" : "Run product analysis →"}</Button>
