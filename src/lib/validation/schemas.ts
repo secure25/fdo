@@ -14,12 +14,6 @@ export const signupSchema = z.object({
 });
 
 export const productSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  url: z.string().trim().url().max(300).optional().or(z.literal("")),
-  description: z.string().trim().min(20).max(2000),
-  targetCustomer: z.string().trim().max(160).optional().or(z.literal("")),
-  industry: z.string().trim().max(80).optional().or(z.literal("")),
-  geography: z.string().trim().max(80).optional().or(z.literal("")),
   name: z.string().trim().min(2, "Product name must be at least 2 characters").max(120),
   url: z.preprocess((val) => {
     if (typeof val !== "string") return val;
